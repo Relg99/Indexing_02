@@ -9,7 +9,7 @@
 ;Description:                                             ;
 ;                                                         ;
 ;Control level of water inside a tank.                    ;
-;Sensors:	Empty(A0), full(A1), overflow(A2).        ;
+;Sensors:	Sensor_1(A0), sensor_2(A1), sensor_3(A2). ;
 ;Water pumps:	WP1(B5), WP2(B6).                         ;
 ;Indicators: 	Empty(B0), filling up(B1), full(B2),      ;
 ;		overflow(B3), Alarm(B4).                  ;
@@ -22,13 +22,13 @@
 ;                   | |    / /            \ \       | |   ;
 ;                   | |    | |            | |       | |   ;
 ;                                        _|_|_     _|_|_  ;
-;	|---------overflow------|	/     \   /     \ ;
+;	|---------sensor_3------|	/     \   /     \ ;
 ;       |			|       | WP1 |   | WP2 | ;
-;       |--------full-----------|       \_____/   \_____/ ;
+;       |---------sensor_2------|       \_____/   \_____/ ;
 ;       |			|                         ;
 ;       |			|                         ;
 ;       |			|                         ;
-;       |--------empty----------|                         ;
+;       |---------sensor_1------|                         ;
 ;       |_______________________|                         ;
 ;                                                         ;
 ;                                                         ;
@@ -57,7 +57,6 @@
 
 	ORG	0x00
 	
-
 	CLRF	PORTA
 	CLRF	PORTB
 
@@ -79,8 +78,55 @@
 main:
 
 	MOVF	PORTA,W
-	MOVWF	PORTB
+	ANDLW	b'00000111'	; We are only interested in
+	ADDWF	PCL,F		; 3 bits of the input.
 
+
+	; It's basically	; O F E
+	; a truth table.	; -----
+	GOTO	empty		; 0 0 0 
+	GOTO	sensor_1	; 0 0 1
+	GOTO	alarm		; 0 1 0
+	GOTO	sensor_2	; 0 1 1
+	GOTO	alarm		; 1 0 0
+	GOTO	alarm		; 1 0 1
+	GOTO	alarm		; 1 1 0
+	GOTO	sensor_3	; 1 1 1
+
+empty:
+
+				; Wp2 Wp1 A O Full Fi-up E
+	
+	MOVLW	0x61		;  1   1  0 0   0    0   1
+	MOVWF	PORTB
+	GOTO	main
+
+sensor_1:
+
+
+	MOVLW	0x62		;  1   1  0 0   0    1   0
+	MOVWF	PORTB
+	GOTO	main
+
+sensor_2:
+
+
+	MOVLW	0x24		;  0   1  0 0   1    0   0
+	MOVWF	PORTB
+	GOTO	main
+
+sensor_3:
+
+
+	MOVLW	0x08		;  0   0  0 1   0    0   0
+	MOVWF	PORTB
+	GOTO	main
+
+alarm:
+
+
+	MOVLW	0x10		;  0   0  1 0   0    0   0
+	MOVWF	PORTB
 	GOTO	main
 
 	END

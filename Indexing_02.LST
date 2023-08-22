@@ -1,4 +1,4 @@
-MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-21-2023  19:34:23         PAGE  1
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  1
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
@@ -15,7 +15,7 @@ LOC  OBJECT CODE     LINE SOURCE TEXT
                       00009 ;Description:                                             ;
                       00010 ;                                                         ;
                       00011 ;Control level of water inside a tank.                    ;
-                      00012 ;Sensors:       Empty(A0), full(A1), overflow(A2).        ;
+                      00012 ;Sensors:       Sensor_1(A0), sensor_2(A1), sensor_3(A2). ;
                       00013 ;Water pumps:   WP1(B5), WP2(B6).                         ;
                       00014 ;Indicators:    Empty(B0), filling up(B1), full(B2),      ;
                       00015 ;               overflow(B3), Alarm(B4).                  ;
@@ -28,13 +28,13 @@ LOC  OBJECT CODE     LINE SOURCE TEXT
                       00022 ;                   | |    / /            \ \       | |   ;
                       00023 ;                   | |    | |            | |       | |   ;
                       00024 ;                                        _|_|_     _|_|_  ;
-                      00025 ;       |---------overflow------|       /     \   /     \ ;
+                      00025 ;       |---------sensor_3------|       /     \   /     \ ;
                       00026 ;       |                       |       | WP1 |   | WP2 | ;
-                      00027 ;       |--------full-----------|       \_____/   \_____/ ;
+                      00027 ;       |---------sensor_2------|       \_____/   \_____/ ;
                       00028 ;       |                       |                         ;
                       00029 ;       |                       |                         ;
                       00030 ;       |                       |                         ;
-                      00031 ;       |--------empty----------|                         ;
+                      00031 ;       |---------sensor_1------|                         ;
                       00032 ;       |_______________________|                         ;
                       00033 ;                                                         ;
                       00034 ;                                                         ;
@@ -57,7 +57,7 @@ LOC  OBJECT CODE     LINE SOURCE TEXT
                       00051 #include "p16f628a.inc"
                       00001         LIST
                       00002 
-MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-21-2023  19:34:23         PAGE  2
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  2
 
 
 LOC  OBJECT CODE     LINE SOURCE TEXT
@@ -80,36 +80,88 @@ LOC  OBJECT CODE     LINE SOURCE TEXT
                       00057 
 0000                  00058         ORG     0x00
                       00059         
-                      00060 
-0000   0185           00061         CLRF    PORTA
-0001   0186           00062         CLRF    PORTB
-                      00063 
-0002   3007           00064         MOVLW   0x07
-0003   009F           00065         MOVWF   CMCON
-                      00066 
-0004   1683           00067         BSF     STATUS,RP0
-0005   1303           00068         BCF     STATUS,RP1
-                      00069 
-0006   301F           00070         MOVLW   0x1F
+0000   0185           00060         CLRF    PORTA
+0001   0186           00061         CLRF    PORTB
+                      00062 
+0002   3007           00063         MOVLW   0x07
+0003   009F           00064         MOVWF   CMCON
+                      00065 
+0004   1683           00066         BSF     STATUS,RP0
+0005   1303           00067         BCF     STATUS,RP1
+                      00068 
+0006   301F           00069         MOVLW   0x1F
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-0007   0085           00071         MOVWF   TRISA
-                      00072 
-0008   3000           00073         MOVLW   0x00
+0007   0085           00070         MOVWF   TRISA
+                      00071 
+0008   3000           00072         MOVLW   0x00
 Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
-0009   0086           00074         MOVWF   TRISB
-                      00075 
-000A   1283           00076         BCF     STATUS,RP0
-000B   1303           00077         BCF     STATUS,RP1
-                      00078 
-000C                  00079 main:
-                      00080 
-000C   0805           00081         MOVF    PORTA,W
-000D   0086           00082         MOVWF   PORTB
+0009   0086           00073         MOVWF   TRISB
+                      00074 
+000A   1283           00075         BCF     STATUS,RP0
+000B   1303           00076         BCF     STATUS,RP1
+                      00077 
+000C                  00078 main:
+                      00079 
+000C   0805           00080         MOVF    PORTA,W
+000D   3907           00081         ANDLW   b'00000111'     ; We are only interested in
+000E   0782           00082         ADDWF   PCL,F           ; 3 bits of the input.
                       00083 
-000E   280C           00084         GOTO    main
-                      00085 
-                      00086         END
-MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-21-2023  19:34:23         PAGE  3
+                      00084 
+                      00085         ; It's basically        ; O F E
+                      00086         ; a truth table.        ; -----
+000F   2817           00087         GOTO    empty           ; 0 0 0 
+0010   281A           00088         GOTO    sensor_1        ; 0 0 1
+0011   2823           00089         GOTO    alarm           ; 0 1 0
+0012   281D           00090         GOTO    sensor_2        ; 0 1 1
+0013   2823           00091         GOTO    alarm           ; 1 0 0
+0014   2823           00092         GOTO    alarm           ; 1 0 1
+0015   2823           00093         GOTO    alarm           ; 1 1 0
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0016   2820           00094         GOTO    sensor_3        ; 1 1 1
+                      00095 
+0017                  00096 empty:
+                      00097 
+                      00098                                 ; Wp2 Wp1 A O Full Fi-up E
+                      00099         
+0017   3061           00100         MOVLW   0x61            ;  1   1  0 0   0    0   1
+0018   0086           00101         MOVWF   PORTB
+0019   280C           00102         GOTO    main
+                      00103 
+001A                  00104 sensor_1:
+                      00105 
+                      00106 
+001A   3062           00107         MOVLW   0x62            ;  1   1  0 0   0    1   0
+001B   0086           00108         MOVWF   PORTB
+001C   280C           00109         GOTO    main
+                      00110 
+001D                  00111 sensor_2:
+                      00112 
+                      00113 
+001D   3024           00114         MOVLW   0x24            ;  0   1  0 0   1    0   0
+001E   0086           00115         MOVWF   PORTB
+001F   280C           00116         GOTO    main
+                      00117 
+0020                  00118 sensor_3:
+                      00119 
+                      00120 
+0020   3008           00121         MOVLW   0x08            ;  0   0  0 1   0    0   0
+0021   0086           00122         MOVWF   PORTB
+0022   280C           00123         GOTO    main
+                      00124 
+0023                  00125 alarm:
+                      00126 
+                      00127 
+0023   3010           00128         MOVLW   0x10            ;  0   0  1 0   0    0   0
+0024   0086           00129         MOVWF   PORTB
+0025   280C           00130         GOTO    main
+                      00131 
+                      00132         END
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  4
 
 
 SYMBOL TABLE
@@ -168,7 +220,7 @@ NOT_BOD                           00000000
 NOT_BOR                           00000000
 NOT_PD                            00000003
 NOT_POR                           00000001
-MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-21-2023  19:34:23         PAGE  4
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  5
 
 
 SYMBOL TABLE
@@ -227,7 +279,7 @@ STATUS                            00000003
 SYNC                              00000004
 T0CS                              00000005
 T0IE                              00000005
-MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-21-2023  19:34:23         PAGE  5
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  6
 
 
 SYMBOL TABLE
@@ -286,7 +338,7 @@ TXIE                              00000004
 TXIF                              00000004
 TXREG                             00000019
 TXSTA                             00000098
-MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-21-2023  19:34:23         PAGE  6
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  7
 
 
 SYMBOL TABLE
@@ -345,7 +397,7 @@ _PWRTE_ON                         00003FF7
 _RC_OSC_CLKOUT                    00003FFF
 _RC_OSC_NOCLKOUT                  00003FFE
 _WDTE_OFF                         00003FFB
-MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-21-2023  19:34:23         PAGE  7
+MPASM 5.86  /HOME/RICHO/DOCUMENTS/PIC_ASSEMB   8-22-2023  10:05:31         PAGE  8
 
 
 SYMBOL TABLE
@@ -356,18 +408,23 @@ _WDT_OFF                          00003FFB
 _WDT_ON                           00003FFF
 _XT_OSC                           00003FED
 __16F628A                         00000001
+alarm                             00000023
+empty                             00000017
 main                              0000000C
+sensor_1                          0000001A
+sensor_2                          0000001D
+sensor_3                          00000020
 
 
 MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
 
-0000 : XXXXXXXXXXXXXXX- ---------------- ---------------- ----------------
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXX---------- ----------------
 2000 : -------X-------- ---------------- ---------------- ----------------
 
 All other memory blocks unused.
 
-Program Memory Words Used:    15
-Program Memory Words Free:  2033
+Program Memory Words Used:    38
+Program Memory Words Free:  2010
 
 
 Errors   :     0
